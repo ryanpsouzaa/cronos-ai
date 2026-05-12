@@ -1,5 +1,6 @@
 import fastify from "fastify";
 import fastifyJwt from "@fastify/jwt";
+import multipart from "@fastify/multipart";
 import { logger } from "./logger/index.js";
 import { env } from "./env/index.js";
 import { GeneralErrorResponse } from "./exceptions/GeneralErrorResponse.js";
@@ -16,6 +17,9 @@ declare module "@fastify/jwt" {
 export const app = fastify({ loggerInstance: logger });
 
 app.register(fastifyJwt, { secret: env.JWT_SECRET });
+app.register(multipart, {
+  limits: { fileSize: 20 * 1024 * 1024 },
+});
 
 app.setErrorHandler((error, _request, reply) => {
   if (error instanceof GeneralErrorResponse) {

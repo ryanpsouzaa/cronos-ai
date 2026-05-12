@@ -9,7 +9,10 @@ import type { CreateUserInput } from "../../../schemas/onboarding/users/createUs
 
 export async function createUserService(input: CreateUserInput) {
   logger.info("IN - createUserService");
-  logger.debug({ name: input.name, email: input.email }, "IN - createUserService :: input");
+  logger.debug(
+    { name: input.name, email: input.email },
+    "IN - createUserService :: input",
+  );
 
   try {
     const hashedPassword = await hash(input.password, 10);
@@ -34,7 +37,7 @@ export async function createUserService(input: CreateUserInput) {
     if (err instanceof mongoose.mongo.MongoServerError && err.code === 11000) {
       throw new GeneralErrorResponse(
         statusCode.CONFLICT,
-        ERRORS.USER.EMAIL_ALREADY_IN_USE.message
+        ERRORS.USER.EMAIL_ALREADY_IN_USE.message,
       );
     }
     throw err;

@@ -1,0 +1,578 @@
+openapi: 3.0.3
+info:
+  title: Cronos AI API
+  description: API do Cronos AI — repositório inteligente para jornada acadêmica.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:3333
+    description: Desenvolvimento
+
+tags:
+  - name: Users
+    description: Gerenciamento de usuários
+  - name: Resources
+    description: Upload, consulta e gerenciamento de documentos PDF
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao@email.com"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0e"
+        userId:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+        originalName:
+          type: string
+          example: "artigo-tcc.pdf"
+        mimeType:
+          type: string
+          example: "application/pdf"
+        size:
+          type: integer
+          example: 204800
+        minioKey:
+          type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d/1716400000000-artigo-tcc.pdf"
+        status:
+          type: string
+          enum: [pending, processing, done, error]
+          example: "done"
+        errorMessage:
+          type: string
+          nullable: true
+          example: null
+        vectorCount:
+          type: integer
+          example: 42
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    QuerySource:
+      type: object
+      properties:
+        chunkIndex:
+          type: integer
+          example: 3
+        score:
+          type: number
+          format: float
+          example: 0.91
+        excerpt:
+          type: string
+          example: "O método utilizado consiste em análise qualitativa..."
+
+    QueryResult:
+      type: object
+      properties:
+        answer:
+          type: string
+          example: "O método utilizado foi análise qualitativa conforme descrito na seção 3."
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuerySource"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Mensagem de erro"
+
+paths:
+
+  # ─── Users ────────────────────────────────────────────────────────────────
+
+  /onboarding/users:
+    post:
+      tags: [Users]
+      summary: Criar usuário
+      description: Cria um novo usuário e retorna o token JWT de acesso.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: "João Silva"
+                email:
+                  type: string
+                  format: email
+                  example: "joao@email.com"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "senha123"
+      responses:
+        "201":
+          description: Usuário criado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: E-mail já cadastrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      tags: [Users]
+      summary: Listar usuários
+      description: Retorna a lista de todos os usuários cadastrados.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Lista de usuários
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /onboarding/users/login:
+    post:
+      tags: [Users]
+      summary: Login
+      description: Autentica o usuário e retorna o token JWT.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: "joao@email.com"
+                password:
+                  type: string
+                  example: "senha123"
+      responses:
+        "200":
+          description: Login realizado com sucesso
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Credenciais incorretas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /onboarding/users/{id}:
+    get:
+      tags: [Users]
+      summary: Buscar usuário por ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        "200":
+          description: Usuário encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Usuário não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      tags: [Users]
+      summary: Atualizar usuário
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  example: "João Atualizado"
+                email:
+                  type: string
+                  format: email
+                  example: "novo@email.com"
+                password:
+                  type: string
+                  minLength: 6
+                  example: "novasenha123"
+      responses:
+        "200":
+          description: Usuário atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Dados inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Usuário não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Users]
+      summary: Deletar usuário
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0d"
+      responses:
+        "204":
+          description: Usuário deletado com sucesso
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Usuário não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ─── Resources ────────────────────────────────────────────────────────────
+
+  /resources:
+    post:
+      tags: [Resources]
+      summary: Upload de PDF
+      description: |
+        Faz o upload de um arquivo PDF. O processamento (embedding e indexação)
+        ocorre de forma assíncrona — o status do resource começa em `pending`
+        e evolui para `processing`, `done` ou `error`.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Arquivo PDF (máx. 20 MB)
+      responses:
+        "201":
+          description: Resource criado (processamento em andamento)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resource:
+                    $ref: "#/components/schemas/Resource"
+        "400":
+          description: Arquivo ausente ou tipo inválido
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    get:
+      tags: [Resources]
+      summary: Listar resources
+      description: Retorna todos os resources do usuário autenticado.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Lista de resources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Resource"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /resources/query:
+    post:
+      tags: [Resources]
+      summary: Query em todos os resources
+      description: Faz uma pergunta em linguagem natural sobre todos os PDFs do usuário.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  example: "Qual é a metodologia utilizada no artigo?"
+      responses:
+        "200":
+          description: Resposta gerada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResult"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /resources/{id}:
+    get:
+      tags: [Resources]
+      summary: Buscar resource por ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0e"
+      responses:
+        "200":
+          description: Resource encontrado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resource:
+                    $ref: "#/components/schemas/Resource"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Resource não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      tags: [Resources]
+      summary: Deletar resource
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0e"
+      responses:
+        "204":
+          description: Resource deletado com sucesso
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Resource não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /resources/{id}/query:
+    post:
+      tags: [Resources]
+      summary: Query em um resource específico
+      description: Faz uma pergunta em linguagem natural sobre um PDF específico.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "664f1a2b3c4d5e6f7a8b9c0e"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [question]
+              properties:
+                question:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                  example: "Quais são as conclusões principais?"
+      responses:
+        "200":
+          description: Resposta gerada com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QueryResult"
+        "400":
+          description: Resource ainda não processado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Não autenticado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Resource não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

@@ -15,4 +15,11 @@ export const ERRORS = {
     INVALID_ID: { message: "Invalid user ID" },
     AT_LEAST_ONE_FIELD_REQUIRED: { message: "At least one field must be provided" },
   },
+  RESOURCE: {
+    NO_FILE: { message: "No file provided" },
+    INVALID_FILE_TYPE: { message: "Only PDF files are accepted" },
+    NOT_FOUND: { message: "Resource not found" },
+    INVALID_ID: { message: "Invalid resource ID" },
+    NOT_READY: { message: "Resource is still being processed" },
+  },
 } as const;
